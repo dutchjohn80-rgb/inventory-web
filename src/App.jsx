@@ -2,6 +2,8 @@ import { useEffect, useState, useContext } from "react";
 import { AuthContext } from "./context/AuthContext";
 import Login from "./pages/Login";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+
 function App() {
   const { token, logout } = useContext(AuthContext);
 
@@ -32,7 +34,7 @@ function App() {
     setLoading(true);
     setError(null);
 
-    fetch("http://127.0.0.1:8000/api/products", {
+    fetch(`${API_URL}/products`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -86,8 +88,8 @@ function App() {
     }
 
     const url = editingId
-      ? `http://127.0.0.1:8000/api/products/${editingId}`
-      : "http://127.0.0.1:8000/api/products";
+      ? `${API_URL}/products/${editingId}`
+      : `${API_URL}/products`;
 
     const method = editingId ? "PUT" : "POST";
 
@@ -125,7 +127,7 @@ function App() {
       return;
     }
 
-    fetch(`http://127.0.0.1:8000/api/products/${id}`, {
+    fetch(`${API_URL}/products/${id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${token}`,

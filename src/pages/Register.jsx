@@ -1,46 +1,41 @@
 import { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import Register from "./Register";
 
-function Login() {
+function Register({ onSwitchToLogin }) {
   const { login } = useContext(AuthContext);
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isRegister, setIsRegister] = useState(false);
 
-  if (isRegister) {
-    return <Register onSwitchToLogin={() => setIsRegister(false)} />;
-  }
-
-  const handleLogin = () => {
-    if (!email.trim() || !password) {
-      setError("Please enter email and password");
+  const handleRegister = () => {
+    if (!name.trim() || !email.trim() || !password) {
+      setError("Please fill in all fields");
       return;
     }
 
     setError(null);
     setLoading(true);
 
-    fetch(`${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api"}/login`, {
+    fetch(`${import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api"}/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ name, email, password }),
     })
       .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
       .then(({ ok, data }) => {
         if (!ok) {
-          throw new Error(data.message || "Login failed");
+          throw new Error(data.message || "Registration failed");
         }
 
         login(data.token);
         // No reload needed with context
       })
-      .catch((err) => setError(err.message || "Login failed"))
+      .catch((err) => setError(err.message || "Registration failed"))
       .finally(() => setLoading(false));
   };
 
@@ -49,10 +44,10 @@ function Login() {
       <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-xl shadow-slate-200/60 ring-1 ring-slate-200 transition-colors dark:bg-slate-900 dark:shadow-black/20 dark:ring-slate-800">
         <div className="mb-6 text-center">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            Login to Inventory
+            Create Account
           </h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Enter your credentials to access the system
+            Join the inventory system
           </p>
         </div>
 
@@ -63,6 +58,12 @@ function Login() {
         )}
 
         <div className="space-y-4">
+          <input
+            className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400 dark:focus:ring-cyan-900"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
           <input
             className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400 dark:focus:ring-cyan-900"
             placeholder="Email"
@@ -78,21 +79,21 @@ function Login() {
           />
 
           <button
-            onClick={handleLogin}
+            onClick={handleRegister}
             disabled={loading}
-            className="w-full rounded-2xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:-translate-y-0.5 hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-2xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:-translate-y-0.5 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "Creating account..." : "Create Account"}
           </button>
         </div>
 
         <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
-          Don't have an account?{" "}
+          Already have an account?{" "}
           <span
             className="cursor-pointer text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
-            onClick={() => setIsRegister(true)}
+            onClick={onSwitchToLogin}
           >
-            Create one
+            Sign in
           </span>
         </p>
       </div>
@@ -100,4 +101,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default Register;
