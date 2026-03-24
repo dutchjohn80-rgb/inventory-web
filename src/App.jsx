@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
+import { AuthContext } from "./context/AuthContext";
+import Login from "./pages/Login";
 
 function App() {
+  const { token, logout } = useContext(AuthContext);
+
   const [products, setProducts] = useState([]);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -10,6 +14,7 @@ function App() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState("");
   const [darkMode, setDarkMode] = useState(false);
+  const [search, setSearch] = useState("");
 
   const resetForm = () => {
     setEditingId(null);
@@ -19,19 +24,37 @@ function App() {
   };
 
   const fetchProducts = () => {
+    if (!token) {
+      setError("Please login to load products.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    fetch("http://127.0.0.1:8000/api/products")
-      .then((res) => res.json())
+    fetch("http://127.0.0.1:8000/api/products", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to load products");
+        }
+        return res.json();
+      })
       .then((data) => setProducts(data))
-      .catch(() => setError("Failed to load products"))
+      .catch((err) => setError(err.message || "Failed to load products"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchProducts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -56,6 +79,12 @@ function App() {
     setError(null);
     setSuccess("");
 
+    if (!token) {
+      setError("Please login before modifying products.");
+      setLoading(false);
+      return;
+    }
+
     const url = editingId
       ? `http://127.0.0.1:8000/api/products/${editingId}`
       : "http://127.0.0.1:8000/api/products";
@@ -66,6 +95,7 @@ function App() {
       method,
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ name, quantity, price }),
     })
@@ -83,11 +113,23 @@ function App() {
   };
 
   const deleteProduct = (id) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) {
+      return;
+    }
+
     setError(null);
     setSuccess("");
 
+    if (!token) {
+      setError("Please login before deleting products.");
+      return;
+    }
+
     fetch(`http://127.0.0.1:8000/api/products/${id}`, {
       method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     })
       .then(() => fetchProducts())
       .catch(() => setError("Failed to delete product"));
@@ -100,7 +142,15 @@ function App() {
     setPrice(String(product.price));
   };
 
-  const showTableLayout = products.length > 10;
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const showTableLayout = filteredProducts.length > 10;
+
+  if (!token) {
+    return <Login />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-10 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
@@ -114,12 +164,20 @@ function App() {
               Inventory System
             </h1>
           </div>
-          <button
-            onClick={() => setDarkMode((value) => !value)}
-            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
-          >
-            {darkMode ? "Light mode" : "Dark mode"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setDarkMode((value) => !value)}
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            >
+              {darkMode ? "Light mode" : "Dark mode"}
+            </button>
+            <button
+              onClick={logout}
+              className="rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-red-50 dark:border-red-700 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950/20"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         <div className="mb-8 rounded-3xl bg-white p-6 shadow-xl shadow-slate-200/60 ring-1 ring-slate-200 transition-colors dark:bg-slate-900 dark:shadow-black/20 dark:ring-slate-800">
@@ -178,6 +236,13 @@ function App() {
           )}
         </div>
 
+        <input
+          className="mb-6 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 dark:border-slate-700 dark:bg-slate-900 dark:focus:border-cyan-400 dark:focus:ring-cyan-900"
+          placeholder="Search product..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
         {showTableLayout ? (
           <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200/60 ring-1 ring-slate-200 dark:bg-slate-900 dark:shadow-black/20 dark:ring-slate-800">
             <div className="overflow-x-auto">
@@ -199,14 +264,16 @@ function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {products.map((product) => (
+                  {filteredProducts.map((product) => (
                     <tr
                       key={product.id}
                       className="transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
                     >
                       <td className="px-6 py-4 font-medium">{product.name}</td>
                       <td className="px-6 py-4">{product.quantity}</td>
-                      <td className="px-6 py-4">{product.price}</td>
+                      <td className="px-6 py-4 font-semibold text-green-600 dark:text-green-400">
+                        TZS {product.price}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex justify-end gap-2">
                           <button
@@ -231,7 +298,7 @@ function App() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <div
                 key={product.id}
                 className="rounded-3xl bg-white p-5 shadow-lg shadow-slate-200/60 ring-1 ring-slate-200 transition duration-200 hover:-translate-y-1 hover:shadow-2xl dark:bg-slate-900 dark:shadow-black/20 dark:ring-slate-800"
@@ -241,8 +308,8 @@ function App() {
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                     Qty: {product.quantity}
                   </p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Price: {product.price}
+                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">
+                    TZS {product.price}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -262,6 +329,12 @@ function App() {
               </div>
             ))}
           </div>
+        )}
+
+        {filteredProducts.length === 0 && (
+          <p className="py-10 text-center text-slate-500 dark:text-slate-400">
+            No products found
+          </p>
         )}
       </div>
     </div>
